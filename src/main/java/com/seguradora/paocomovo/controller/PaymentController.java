@@ -24,6 +24,7 @@ public class PaymentController {
 
     @PostMapping("/criar")
     public void createCustomer(@RequestBody Customer customer) {
+
         System.out.println("Iniciando criação de cliente");
         System.out.println("CostumerName: " + customer.getName());
         System.out.println("CostumerCarSign: " + customer.getCarSign());
@@ -41,17 +42,5 @@ public class PaymentController {
     public List<Invoice> getAllPaymentsPendent() throws JsonProcessingException {
         return invoiceService.getAllPaymentsPendents();
     }
-
-//    @PostMapping("/fatura")
-//    public void get2() {
-//        System.out.println("Iniciando fatura de cliente");
-//        invoiceService.addPaymentByReference();
-//    }
-//
-//    @GetMapping("/listar")
-//    public void get3() {
-//        System.out.println("Iniciando criação de cliente");
-//        System.out.println(invoiceService.getPaymentStatus("DBB-6D13"));
-//    }
 
 }

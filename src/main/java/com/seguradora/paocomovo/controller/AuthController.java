@@ -1,114 +1,67 @@
 package com.seguradora.paocomovo.controller;
 
+
+import com.seguradora.paocomovo.dto.LoginRequestDTO;
+import com.seguradora.paocomovo.dto.ResponseDTO;
 import com.seguradora.paocomovo.model.User;
 import com.seguradora.paocomovo.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.seguradora.paocomovo.security.TokenService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth")
+@RequiredArgsConstructor
+@CrossOrigin(origins = "http://localhost:3000", allowedHeaders = "*", allowCredentials = "true")
+
 public class AuthController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TokenService tokenService;
 
-    @Autowired
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
+
+//    public AuthController(AuthenticationManager authenticationManager,
+//                          UserDetailsService userDetailsService,
+//                          TokenService tokenService) {
+//        this.authenticationManager = authenticationManager;
+//        this.userDetailsService = userDetailsService;
+//        this.tokenService = tokenService;
+//
+//    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ResponseDTO> login(@RequestBody LoginRequestDTO body) {
+        User user = userRepository.findByUsername(body.username()).orElseThrow(() -> new RuntimeException("Username not found"));
+        if (passwordEncoder.matches(body.password(), user.getPassword())) {
+            String token = this.tokenService.generateToken(user);
+            System.out.println("o token tentado logar é: " + token);
+            return ResponseEntity.ok(new ResponseDTO(user.getUsername(), token));
+        } else {
+            System.out.println("token n tem");
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PostMapping("/register")
-    public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, String> request) {
-        Map<String, Object> response = new HashMap<>();
+    public ResponseEntity<ResponseDTO> register(@RequestBody LoginRequestDTO body) {
 
-        try {
-            String username = request.get("username");
-            String password = request.get("password");
 
-            // Validações
-            if (username == null || username.trim().isEmpty()) {
-                response.put("success", false);
-                response.put("message", "Username é obrigatório");
-                return ResponseEntity.badRequest().body(response);
-            }
-
-            if (password == null || password.length() < 3) {
-                response.put("success", false);
-                response.put("message", "Senha deve ter pelo menos 3 caracteres");
-                return ResponseEntity.badRequest().body(response);
-            }
-
-            // Verifica se usuário já existe
-            if (userRepository.existsByUsername(username)) {
-                response.put("success", false);
-                response.put("message", "Usuário já existe");
-                return ResponseEntity.badRequest().body(response);
-            }
-
-            // Cria novo usuário
-            User user = new User();
-            user.setUsername(username);
-            user.setPassword(passwordEncoder.encode(password));
-            user.setRole("USER");
-
-            userRepository.save(user);
-
-            response.put("success", true);
-            response.put("message", "Usuário criado com sucesso");
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Erro interno do servidor");
-            return ResponseEntity.internalServerError().body(response);
+        //User user = userRepository.findByUsername(body.username()).orElseThrow(() -> new RuntimeException("Username not found"));
+        if (userRepository.findByUsername(body.username()).isPresent()) {
+            System.out.println("ja existe");
+            return ResponseEntity.badRequest().build();
         }
-    }
 
-    @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> request) {
-        Map<String, Object> response = new HashMap<>();
+        String passwordEncoded = passwordEncoder.encode(body.password());
+        User user = new User(body.username(), passwordEncoded);
 
-        try {
-            String username = request.get("username");
-            String password = request.get("password");
-
-            // Busca usuário
-            User user = userRepository.findByUsername(username).orElse(null);
-
-            if (user == null) {
-                response.put("success", false);
-                response.put("message", "Usuário não encontrado");
-                return ResponseEntity.badRequest().body(response);
-            }
-
-            // Verifica senha
-            if (!passwordEncoder.matches(password, user.getPassword())) {
-                response.put("success", false);
-                response.put("message", "Senha incorreta");
-                return ResponseEntity.badRequest().body(response);
-            }
-
-            // Login bem-sucedido
-            response.put("success", true);
-            response.put("message", "Login realizado com sucesso");
-            response.put("user", Map.of(
-                    "id", user.getId(),
-                    "username", user.getUsername(),
-                    "role", user.getRole()
-            ));
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Erro interno do servidor");
-            return ResponseEntity.internalServerError().body(response);
-        }
+        user.setPassword(passwordEncoded);
+        userRepository.save(user);
+        String token = tokenService.generateToken(user);
+        System.out.println("Token: " + token);
+        return ResponseEntity.ok(new ResponseDTO(user.getUsername(), token));
     }
 }
